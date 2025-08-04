@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lugx-analytics
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lugx-analytics
+  template:
+    metadata:
+      labels:
+        app: lugx-analytics
+    spec:
+      containers:
+      - name: lugx-analytics
+        image: 476287788277.dkr.ecr.ap-south-1.amazonaws.com/lugx-analytics-service
+        ports:
+        - containerPort: 3003
