@@ -8,7 +8,8 @@ app.use(express.json());
 const clickhouse = createClient({
   url: process.env.CLICKHOUSE_URL,
   username: process.env.CLICKHOUSE_USER,
-  password: process.env.CLICKHOUSE_PASSWORD
+  password: process.env.CLICKHOUSE_PASSWORD,
+  database: 'lugx_analytics',
 });
 
 
