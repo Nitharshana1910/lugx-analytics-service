@@ -1,0 +1,66 @@
+name: Deploy lugx-analytics-service with Blue-Green
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  SERVICE_NAME: lugx-analytics-service
+  COLOR: green
+  CONTAINER_PORT: 3003
+
+jobs:
+  deploy:
+    name: Deploy Blue-Green to EKS
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+
+    - name: Set image tag
+      run: echo "IMAGE_TAG=${{ github.sha }}" >> $GITHUB_ENV
+
+    - name: Build and push Docker image
+      run: |
+        IMAGE=${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG
+        docker build -t $IMAGE .
+        docker push $IMAGE
+
+    - name: Update Kubeconfig
+      run: |
+        aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
+
+    - name: Deploy Green Version
+      run: |
+        export IMAGE="${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:$IMAGE_TAG"
+        sed "s|<YOUR_ECR_IMAGE>|$IMAGE|g" k8s/analytics-deployment-green.yaml | kubectl apply -f -
+        kubectl apply -f k8s/analytics-service-green.yaml
+        kubectl rollout status deployment/lugx-analytics-service-green
+
+    - name: Test Green Version
+      run: |
+        echo "You can add test scripts here like curl or integration tests"
+
+    - name: Switch Ingress to Green
+      run: |
+        kubectl patch ingress lugx-analytics-ingress \
+          --type='json' \
+          -p='[{"op": "replace", "path": "/spec/rules/0/http/paths/0/backend/service/name", "value":"lugx-analytics-service-green"}]'
+
+    - name: Delete Blue Deployment
+      run: |
+        kubectl delete deployment lugx-analytics-service-blue --ignore-not-found
+        kubectl delete service lugx-analytics-service-blue --ignore-not-found
