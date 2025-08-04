@@ -17,3 +17,19 @@ spec:
         image: 476287788277.dkr.ecr.ap-south-1.amazonaws.com/lugx-analytics-service
         ports:
         - containerPort: 3003
+        env:
+        - name: CLICKHOUSE_HOST
+          value: clickhouse
+        - name: CLICKHOUSE_PORT
+          value: "8123"
+        - name: CLICKHOUSE_USER
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-secret
+              key: username
+        - name: CLICKHOUSE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: clickhouse-secret
+              key: password
+
